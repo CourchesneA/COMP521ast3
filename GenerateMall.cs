@@ -43,8 +43,11 @@ public class Mall
         get { return floorLength * 2 + stairLength; }
     }
 
-    //Fields
-    private Tile[][,] gridPlan;
+    //2D Object Array used for generating terrain initially
+    private Tile[,] gridPlan;
+
+    //3D int array used for generating the shoppers
+    private int[,,] occupancyMap;
 
     public Mall(int stairLength, int timeDimension, int mallPopulation)
     {
@@ -52,16 +55,15 @@ public class Mall
         this.timeDimension = timeDimension;
         this.mallPopulation = mallPopulation;
 
-        //this.gridPlan = new Tile[mallWidth, mallLength][];
-        this.gridPlan = new Tile[timeDimension][,];
-        this.gridPlan[0] = new Tile[mallWidth, mallLength];
+        this.gridPlan = new Tile[mallWidth, mallLength];
+        this.occupancyMap = new int[timeDimension, mallWidth, mallLength];
 
         //Populate the first layer with empty tiles
-        for(int i=0; i<gridPlan[0].GetLength(0); i++)
+        for (int i=0; i<gridPlan.GetLength(0); i++)
         {
-            for(int j=0; j<gridPlan[0].GetLength(1); j++)
+            for(int j=0; j<gridPlan.GetLength(1); j++)
             {
-                gridPlan[0][i, j] = new Tile(new Position(i,j));
+                gridPlan[i, j] = new Tile(new Position(i,j));
             }
         }
 
@@ -74,7 +76,7 @@ public class Mall
         //Add Plants
         AddPlants();
 
-        printGrid();
+        PrintGrid();
     }
 
     private void AddBounds()
@@ -83,7 +85,7 @@ public class Mall
         {
             for(int y = floorLength; y < mallLength-floorLength; y++)
             {
-                Tile room = gridPlan[0][x, y];
+                Tile room = gridPlan[x, y];
                 if(x%(mallWidth/(stairCount))== (mallWidth / (stairCount))/2)
                 {
                     room.isStair = true;
@@ -101,26 +103,26 @@ public class Mall
         //Lower floor
         for(int i=0 ; i<storePerFloor; i++)
         {
-            generateStore(new Position(i * (storeWidth + 1), 0), false);
+            GenerateStore(new Position(i * (storeWidth + 1), 0), false);
         }
 
         //Upper floor
         for(int i=0; i<storePerFloor; i++)
         {
-            generateStore(new Position(i * (storeWidth + 1), mallLength-(storeLength+2)), true);
+            GenerateStore(new Position(i * (storeWidth + 1), mallLength-(storeLength+2)), true);
         }
     }
 
-    private void generateStore(Position corner, bool inverted)
+    private void GenerateStore(Position corner, bool inverted)
     {
         for(int i=0; i<storeLength+2; i++)
         {
-            Tile room = gridPlan[0][corner.x, corner.y + i];
+            Tile room = gridPlan[corner.x, corner.y + i];
             if (room.occupant == null)
             {
                 room.occupant = new Wall();
             }
-            room = gridPlan[0][corner.x + storeWidth + 1, corner.y + i];
+            room = gridPlan[corner.x + storeWidth + 1, corner.y + i];
             if(room.occupant == null)
             {
                 room.occupant = new Wall();
@@ -129,12 +131,12 @@ public class Mall
 
         for(int i=0; i<storeWidth; i++)
         {
-            Tile room = gridPlan[0][corner.x + 1 + i, corner.y];
+            Tile room = gridPlan[corner.x + 1 + i, corner.y];
             if(room.occupant == null)
             {
                 room.occupant = new Wall();
             }
-            room = gridPlan[0][corner.x + 1 + i, corner.y + storeLength + 1];
+            room = gridPlan[corner.x + 1 + i, corner.y + storeLength + 1];
             if(room.occupant == null)
             {
                 room.occupant = new Wall();
@@ -142,7 +144,7 @@ public class Mall
         }
 
         int offset = inverted ? 0:storeLength + 1;
-        gridPlan[0][corner.x + 1 + storeWidth / 2, corner.y + offset].occupant = null;
+        gridPlan[corner.x + 1 + storeWidth / 2, corner.y + offset].occupant = null;
     }
 
     private void AddPlants()
@@ -156,7 +158,7 @@ public class Mall
 
             int y = (side == 0) ? storeLength + 3 + offset : mallLength - (storeLength + 4) - offset;
 
-            Tile room = gridPlan[0][x, y];
+            Tile room = gridPlan[x, y];
             if (!room.isObstacle)
             {
                 room.occupant = new Plant();
@@ -166,21 +168,21 @@ public class Mall
         
     }
 
-    public void printGrid()
+    public void PrintGrid()
     {
         string str = "";
-        for(int i=0; i< gridPlan[0].GetLength(0); i++)
+        for(int i=0; i< gridPlan.GetLength(0); i++)
         {
-            for(int j=0; j<gridPlan[0].GetLength(1); j++)
+            for(int j=0; j<gridPlan.GetLength(1); j++)
             {
                 char tileType = '_';
-                if(gridPlan[0][i,j].occupant is Wall)
+                if(gridPlan[i,j].occupant is Wall)
                 {
                     tileType = 'X';
-                }else if(gridPlan[0][i, j].occupant is Abyss)
+                }else if(gridPlan[i, j].occupant is Abyss)
                 {
                     tileType = 'A';
-                }else if(gridPlan[0][i,j].occupant is Plant)
+                }else if(gridPlan[i,j].occupant is Plant)
                 {
                     tileType = 'P';
                 }
