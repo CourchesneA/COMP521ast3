@@ -77,6 +77,9 @@ public class Mall
         AddPlants();
 
         PrintGrid();
+
+        //Generate occupancy map from the 2D terrain
+        PopulateOccupancyMap();
     }
 
     private void AddBounds()
@@ -192,6 +195,25 @@ public class Mall
 
         }
         Debug.Log(str);
+    }
+
+    private void PopulateOccupancyMap()
+    {
+        //Occupancy codes: 0=empty, 1=shopper, 2=wall, plant or out of bounds
+        for(int i = 0; i < occupancyMap.GetLength(0); i++)
+        {
+            for (int j = 0; j < occupancyMap.GetLength(1); j++)
+            {
+                for(int k = 0; k < occupancyMap.GetLength(2); k++)
+                {
+                    if (gridPlan[j, k].isObstacle)
+                    {
+                        occupancyMap[i, j, k] = 2;
+                    }
+                }
+                
+            }
+        }
     }
 
 }
