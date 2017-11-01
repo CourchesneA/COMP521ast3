@@ -9,7 +9,25 @@ public class GenerateMall : MonoBehaviour {
 
     public void Awake()
     {
-        mall = new Mall(5,5,5);
+        //Generates the mall with obstacles and terrain
+        mall = new Mall(5, 5, 5);
+
+        //Display the Map without shoppers
+
+
+
+
+
+            //Given shoppers location, find a new destination and find a path
+
+            //Display the animation at each time step
+
+
+    }
+
+    public void Update()
+    {
+
     }
 
 
@@ -32,19 +50,22 @@ public class Mall
     public const int wallWidth = 1;
     public const int wallLength = 1;
 
-    private int floorWidth = (storeWidth + wallWidth) * storePerFloor + wallWidth;
-    private int floorLength = floorDepth + wallLength * 2 + storeLength;
-    private int mallWidth
+    public int floorWidth = (storeWidth + wallWidth) * storePerFloor + wallWidth;
+    public int floorLength = floorDepth + wallLength * 2 + storeLength;
+    public int MallWidth
     {
         get { return floorWidth; }
     }
-    private int mallLength
+    public int MallLength
     {
         get { return floorLength * 2 + stairLength; }
     }
 
+    public List<Shopper> shoppers;
+
+
     //2D Object Array used for generating terrain initially
-    private Tile[,] gridPlan;
+    public Tile[,] gridPlan;
 
     //3D int array used for generating the shoppers
     private int[,,] occupancyMap;
@@ -54,9 +75,10 @@ public class Mall
         this.stairLength = stairLength;
         this.timeDimension = timeDimension;
         this.mallPopulation = mallPopulation;
+        shoppers = new List<Shopper>(mallPopulation);
 
-        this.gridPlan = new Tile[mallWidth, mallLength];
-        this.occupancyMap = new int[timeDimension, mallWidth, mallLength];
+        this.gridPlan = new Tile[MallWidth, MallLength];
+        this.occupancyMap = new int[timeDimension, MallWidth, MallLength];
 
         //Populate the first layer with empty tiles
         for (int i=0; i<gridPlan.GetLength(0); i++)
@@ -76,20 +98,26 @@ public class Mall
         //Add Plants
         AddPlants();
 
-        PrintGrid();
-
         //Generate occupancy map from the 2D terrain
         PopulateOccupancyMap();
+
+        AddShoppers();
+
+        PrintGrid();
     }
 
+    
+    /// <summary>
+    /// Add the out of bounds tiles (i.e. on each sides of teh stairs)
+    /// </summary>
     private void AddBounds()
     {
-        for(int x=0; x < mallWidth; x++)
+        for(int x=0; x < MallWidth; x++)
         {
-            for(int y = floorLength; y < mallLength-floorLength; y++)
+            for(int y = floorLength; y < MallLength-floorLength; y++)
             {
                 Tile room = gridPlan[x, y];
-                if(x%(mallWidth/(stairCount))== (mallWidth / (stairCount))/2)
+                if(x%(MallWidth/(stairCount))== (MallWidth / (stairCount))/2)
                 {
                     room.isStair = true;
                 }
@@ -101,6 +129,9 @@ public class Mall
         }
     }
 
+    /// <summary>
+    /// Generates the stores on 2D array of the terrain
+    /// </summary>
     private void AddStores()
     {
         //Lower floor
@@ -112,10 +143,15 @@ public class Mall
         //Upper floor
         for(int i=0; i<storePerFloor; i++)
         {
-            GenerateStore(new Position(i * (storeWidth + 1), mallLength-(storeLength+2)), true);
+            GenerateStore(new Position(i * (storeWidth + 1), MallLength-(storeLength+2)), true);
         }
     }
 
+    /// <summary>
+    /// Generate a store given its position and orientation
+    /// </summary>
+    /// <param name="corner"></param>
+    /// <param name="inverted"></param>
     private void GenerateStore(Position corner, bool inverted)
     {
         for(int i=0; i<storeLength+2; i++)
@@ -150,19 +186,22 @@ public class Mall
         gridPlan[corner.x + 1 + storeWidth / 2, corner.y + offset].occupant = null;
     }
 
+    /// <summary>
+    /// Randomly positions plants
+    /// </summary>
     private void AddPlants()
     {
         int plantGenerated = 0;
         while(plantGenerated < plantCount)
         {
-            int x = Random.Range(0,mallWidth);
+            int x = Random.Range(0,MallWidth);
             int offset = Random.Range(0, 3);
             int side = Random.Range(0, 2);
 
-            int y = (side == 0) ? storeLength + 3 + offset : mallLength - (storeLength + 4) - offset;
+            int y = (side == 0) ? storeLength + 3 + offset : MallLength - (storeLength + 4) - offset;
 
             Tile room = gridPlan[x, y];
-            if (!room.isObstacle)
+            if (!room.IsObstacle)
             {
                 room.occupant = new Plant();
                 plantGenerated++;
@@ -171,44 +210,43 @@ public class Mall
         
     }
 
-    public void PrintGrid()
+    /// <summary>
+    /// Randomly position shoppers
+    /// </summary>
+    private void AddShoppers()
     {
-        string str = "";
-        for(int i=0; i< gridPlan.GetLength(0); i++)
+        int shoppersGenerated = 0;
+        int shopperID = 1;
+        while (shoppersGenerated < mallPopulation)
         {
-            for(int j=0; j<gridPlan.GetLength(1); j++)
-            {
-                char tileType = '_';
-                if(gridPlan[i,j].occupant is Wall)
-                {
-                    tileType = 'X';
-                }else if(gridPlan[i, j].occupant is Abyss)
-                {
-                    tileType = 'A';
-                }else if(gridPlan[i,j].occupant is Plant)
-                {
-                    tileType = 'P';
-                }
-                str += "[" + tileType + "]";
-            }
-            str += System.Environment.NewLine;
+            int x = Random.Range(0, MallWidth);
+            int y = Random.Range(0, MallLength);
 
+            if (occupancyMap[0, x, y] == 0)
+            {
+                Shopper s = new Shopper() { ID = shopperID++, position = new Position(x,y) };
+                occupancyMap[0, x, y] = s.ID;
+                shoppersGenerated++;
+                shoppers.Add(s);
+            }
         }
-        Debug.Log(str);
     }
 
+    /// <summary>
+    /// Use the 2D array of object to build a 3D array of primitive that will be used for A*
+    /// </summary>
     private void PopulateOccupancyMap()
     {
-        //Occupancy codes: 0=empty, 1=shopper, 2=wall, plant or out of bounds
+        //Occupancy codes: 0=empty, -1=wall, plant or out of bounds, positive number : shopper ID
         for(int i = 0; i < occupancyMap.GetLength(0); i++)
         {
             for (int j = 0; j < occupancyMap.GetLength(1); j++)
             {
                 for(int k = 0; k < occupancyMap.GetLength(2); k++)
                 {
-                    if (gridPlan[j, k].isObstacle)
+                    if (gridPlan[j, k].IsObstacle)
                     {
-                        occupancyMap[i, j, k] = 2;
+                        occupancyMap[i, j, k] = -1;
                     }
                 }
                 
@@ -216,12 +254,80 @@ public class Mall
         }
     }
 
+    /// <summary>
+    /// Iterate through each shoppers and, if such a path exists, plan its trip to its randomly chosen destination.
+    /// If no such path exists in the given timeframe, the shopper will stay idle
+    /// </summary>
+    public void PlanMoves()
+    {
+        foreach(Shopper shopper in shoppers)
+        {
+            //Choose a destination with equal probability of inside a shop or not
+            shopper.destination = shopper.ChooseDestination(this);
+
+            //A*
+            //TODO
+        }
+    }
+
+    /// <summary>
+    /// Debugging : Print a representation of the grid in ASCII in the console
+    /// </summary>
+    public void PrintGrid()
+    {
+        try
+        {
+            string str = "";
+            for (int i = 0; i < gridPlan.GetLength(0); i++)
+            {
+                for (int j = 0; j < gridPlan.GetLength(1); j++)
+                {
+                    char tileType = '_';
+                    if (gridPlan[i, j].occupant is Wall)
+                    {
+                        tileType = 'X';
+                    }
+                    else if (gridPlan[i, j].occupant is Abyss)
+                    {
+                        tileType = 'A';
+                    }
+                    else if (gridPlan[i, j].occupant is Plant)
+                    {
+                        tileType = 'P';
+                    }
+                    else if (occupancyMap[0, i, j] != 0)
+                    {
+                        tileType = occupancyMap[0, i, j].ToString()[0];
+                    }
+                    str += "[" + tileType + "]";
+                }
+                str += System.Environment.NewLine;
+
+            }
+            Debug.Log(str);
+        }
+        catch (System.Exception)
+        {
+            //We dont want an error thrown in a debug function
+            Debug.Log("Error Occured while trying to print grid to console");
+        }
+        
+    }
+
+    public bool IsInShop(Position position)
+    {
+        if(position.y <= storeLength+2 || position.y >= MallLength - (storeLength + 2))
+        {
+            return true;
+        }
+        return false;
+    }
 }
 
 public class Tile
 {
     public IOccupant occupant;
-    public bool isObstacle
+    public bool IsObstacle
     {
         get { return (occupant is Wall || occupant is Plant || occupant is Abyss); }
     }
@@ -243,6 +349,28 @@ public interface IOccupant
 
 public class Shopper : IOccupant
 {
+    public Position position;
+    public int ID;
+    public Position destination;
+
+    public Position ChooseDestination(Mall mall)
+    {
+        bool inShop = Random.Range(0, 2) == 1;
+
+        while (true)
+        {
+            int x = Random.Range(0, mall.MallWidth);
+            int y = Random.Range(0, mall.MallLength);
+            Position position = new Position(x, y);
+
+            if(mall.IsInShop(position) == inShop || !mall.gridPlan[x, y].IsObstacle)
+            {
+                return position;
+            }
+            
+        }
+
+    }
 
 }
 
