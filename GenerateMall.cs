@@ -85,7 +85,7 @@ public class Mall
         {
             for(int j=0; j<gridPlan.GetLength(1); j++)
             {
-                gridPlan[i, j] = new Tile(new Position(i,j));
+                gridPlan[i, j] = new Tile(new Position2(i,j));
             }
         }
 
@@ -101,6 +101,7 @@ public class Mall
         //Generate occupancy map from the 2D terrain
         PopulateOccupancyMap();
 
+        //Add randomly positionned shoppers
         AddShoppers();
 
         PrintGrid();
@@ -137,13 +138,13 @@ public class Mall
         //Lower floor
         for(int i=0 ; i<storePerFloor; i++)
         {
-            GenerateStore(new Position(i * (storeWidth + 1), 0), false);
+            GenerateStore(new Position2(i * (storeWidth + 1), 0), false);
         }
 
         //Upper floor
         for(int i=0; i<storePerFloor; i++)
         {
-            GenerateStore(new Position(i * (storeWidth + 1), MallLength-(storeLength+2)), true);
+            GenerateStore(new Position2(i * (storeWidth + 1), MallLength-(storeLength+2)), true);
         }
     }
 
@@ -152,7 +153,7 @@ public class Mall
     /// </summary>
     /// <param name="corner"></param>
     /// <param name="inverted"></param>
-    private void GenerateStore(Position corner, bool inverted)
+    private void GenerateStore(Position2 corner, bool inverted)
     {
         for(int i=0; i<storeLength+2; i++)
         {
@@ -224,7 +225,7 @@ public class Mall
 
             if (occupancyMap[0, x, y] == 0)
             {
-                Shopper s = new Shopper() { ID = shopperID++, position = new Position(x,y) };
+                Shopper s = new Shopper() { ID = shopperID++, position = new Position2(x,y) };
                 occupancyMap[0, x, y] = s.ID;
                 shoppersGenerated++;
                 shoppers.Add(s);
@@ -265,9 +266,79 @@ public class Mall
             //Choose a destination with equal probability of inside a shop or not
             shopper.destination = shopper.ChooseDestination(this);
 
-            //A*
-            //TODO
+            //A*: Now we have what we need to search a path for 
+            List<GridNode> openSet = new List<GridNode>();
+            HashSet<GridNode> closedSet = new HashSet<GridNode>();
+
+            openSet.Add(new GridNode(new Position3(shopper.position.x, shopper.position.y, 0)));
+
+            while(openSet.Count > 0)    //While there are node to explore
+            {
+                GridNode currentNode = openSet[0];      //Select one with lowest fCost
+                for(int i=1; i<openSet.Count; i++)
+                {
+                    if(openSet[i].fCost < currentNode.fCost || openSet[i].fCost == currentNode.fCost && openSet[i].hCost < currentNode.hCost)
+                    {
+                        currentNode = openSet[i];
+                    }
+                }
+
+                openSet.Remove(currentNode);
+                closedSet.Add(currentNode);
+
+                if (currentNode.position.Compare(shopper.destination))
+                {
+                    return;
+                }
+
+                foreach(GridNode node in GetFreeNeighbours(currentNode))
+                {
+                    //non traversable nodes are already removed from this list
+
+                    //Check if node is in already explored
+                }
+
+
+            }
+
         }
+    }
+
+    /// <summary>
+    /// Return a list of adjacent nodes that are not out of bounds and are not obstacles
+    /// </summary>
+    /// <param name="node"></param>
+    /// <returns></returns>
+    public List<GridNode> GetFreeNeighbours(GridNode node)
+    {
+        List<GridNode> list = new List<GridNode>();
+        Position3 pos = node.position;
+        int time = pos.t + 1;
+
+
+        for (int i = 0; i < 4; i++)
+        {
+            try
+            {
+                Position3 otherPos = new Position3(time, pos.x + (int)Mathf.Sin(i * Mathf.PI / 2), pos.y + (int)Mathf.Cos(i * Mathf.PI / 2));
+                //Add this adjacent cell if its not a room and its not out of bound
+                if (occupancyMap[time,otherPos.x,otherPos.y] == 0)
+                {
+                    GridNode newNode = new GridNode(otherPos);
+                    list.Add(newNode);
+                }
+            }
+            catch (System.Exception)
+            {
+                //Tile was out of bound or obstacle, continue
+                continue;
+            }
+        }
+
+        //Not moving may also be a choice
+
+
+        return list;
     }
 
     /// <summary>
@@ -314,13 +385,33 @@ public class Mall
         
     }
 
-    public bool IsInShop(Position position)
+    /// <summary>
+    /// Check if the given position is in a store (or wall around them)
+    /// </summary>
+    /// <param name="position"></param>
+    /// <returns></returns>
+    public bool IsInShop(Position2 position)
     {
         if(position.y <= storeLength+2 || position.y >= MallLength - (storeLength + 2))
         {
             return true;
         }
         return false;
+    }
+
+    private int ManhattanDist(Position2 p1, Position2 p2)
+    {
+        return System.Math.Abs(p2.x - p1.x) + System.Math.Abs(p2.y - p1.y);
+    }
+
+    private int CostToGo(Position2 current, Position2 dest)
+    {
+        return ManhattanDist(current, dest);
+    }
+
+    private int CostToCome(Position2 start, Position2 current)
+    {
+        return ManhattanDist(start, current);
     }
 }
 
@@ -332,9 +423,9 @@ public class Tile
         get { return (occupant is Wall || occupant is Plant || occupant is Abyss); }
     }
     public bool isStair = false;
-    public Position position;
+    public Position2 position;
 
-    public Tile(Position position)
+    public Tile(Position2 position)
     {
         this.position = position;
         this.occupant = null;
@@ -349,11 +440,11 @@ public interface IOccupant
 
 public class Shopper : IOccupant
 {
-    public Position position;
+    public Position2 position;
     public int ID;
-    public Position destination;
+    public Position2 destination;
 
-    public Position ChooseDestination(Mall mall)
+    public Position2 ChooseDestination(Mall mall)
     {
         bool inShop = Random.Range(0, 2) == 1;
 
@@ -361,7 +452,7 @@ public class Shopper : IOccupant
         {
             int x = Random.Range(0, mall.MallWidth);
             int y = Random.Range(0, mall.MallLength);
-            Position position = new Position(x, y);
+            Position2 position = new Position2(x, y);
 
             if(mall.IsInShop(position) == inShop || !mall.gridPlan[x, y].IsObstacle)
             {
@@ -389,15 +480,49 @@ public class Abyss : IOccupant
 
 }
 
+public class GridNode
+{
+    public Position3 position;
+    public int gCost;
+    public int hCost;
 
-public class Position
+    public GridNode(Position3 position)
+    {
+        this.position = position;
+    }
+    public int fCost
+    {
+        get { return gCost + hCost; }
+    }
+}
+
+public class Position2
 {
     public int x;
     public int y;
 
-    public Position(int x, int y)
+    public Position2(int x, int y)
     {
         this.x = x;
         this.y = y;
+    }
+}
+
+public class Position3
+{
+    public int x;
+    public int y;
+    public int t;
+
+    public Position3(int x, int y, int t)
+    {
+        this.x = x;
+        this.y = y;
+        this.t = t;
+    }
+
+    public bool Compare(Position2 other)
+    {
+        return x == other.x && y == other.y;
     }
 }
